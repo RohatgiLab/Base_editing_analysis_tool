@@ -1,4 +1,4 @@
-# gRNA Screening Analysis Pipeline
+### Base-editing screen analysis pipeline
 A modular R-based pipeline for processing CRISPR gRNA base-editing screening data from raw FASTQ files through alignment, 
 read counting, and statistical analysis (z-scores, p-values, and FDR), using control-guide log fold-changes as the null distribution.
 
