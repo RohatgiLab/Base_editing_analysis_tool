@@ -5,7 +5,7 @@ read counting, and statistical analysis (z-scores, p-values, and FDR), using con
 This repository is designed to support reproducible, end-to-end analysis of pooled CRISPR base-editing screens, 
 enabling standardized processing from sequencing reads to statistically inferred guide-level effects.
 
-
+**An accompanying `.Rmd` file is provided to demonstrate a full example workflow, allowing users to run the pipeline step-by-step on example data and reproduce the analysis from raw sequencing reads to final statistical outputs.**
 ---
 
 ## Overview
