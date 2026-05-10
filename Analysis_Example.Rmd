@@ -1,0 +1,155 @@
+---
+title: "<span style='font-size:24px; color:#2C3E50; font-weight:bold;'>Base Editing Screen Analysis</span>"
+author: "<span style='font-size:18px; color:#555555;'>Murugesh</span>"
+date: "<span style='font-size:14px; color:#777777;'>2026-05-10</span>"
+output:
+  html_document:
+---
+
+
+
+
+```{r setup, include=FALSE}
+source("fastq_to_readcounts_pipeline.R")
+source("readcounts_to_pvalues.R")
+```
+
+```{r echo = TRUE, comment = NA, message = FALSE, warning = FALSE}
+# Functions to process Fastq files and align them against the reference,
+# sort and index bam files, and get readcounts for each library: 
+# Load these libraries: 
+library(Rsubread)
+library(Biostrings)
+library(GenomicAlignments)
+library(GenomicFeatures)
+library(QuasR)
+library(Rsamtools)
+library(ShortRead)
+library(readxl)
+library(openxlsx)
+library(stringr)
+library(dplyr)
+library(data.table)
+
+
+
+
+```
+
+
+
+
+
+```{r echo = TRUE, comment=TRUE, warning=FALSE, message=FALSE}
+# Once you have both functions fastq_to_readcounts_pipeline.R and 
+# readcounts_to_pvalues.R available, have loaded all the
+# dependency libraries; 
+
+# Start with a Folder containing FASTQ files and fasta file for alignment. 
+# Wrapper function: run_grna_pipeline
+#
+# This function performs an end-to-end processing pipeline for gRNA sequencing data.
+#
+# Inputs:
+# - input_dir: directory containing raw FASTQ files
+# - reference_file: reference FASTA file used for alignment
+# - index_name: name used to build and store the alignment index
+#
+# Processing parameters:
+# - nBases: number of mismatches allowed during preprocessing (default = 2)
+# - Lpattern: 5' trimming pattern used to remove vector backbone sequences at the start
+# - Rpattern: 3' trimming pattern used to remove vector backbone sequences at the end
+# - truncateStartBases: optional numeric value to truncate a fixed number of bases from the 5' end
+# - truncateEndBases: optional numeric value to truncate a fixed number of bases from the 3' end
+#
+# The pipeline executes the following steps:
+# 1. Directory setup
+# 2. FASTQ preprocessing
+# 3. Reference index construction
+# 4. Alignment to reference
+# 5. BAM sorting and indexing
+# 6. Read counting per library
+# 7. Merging count tables into a final matrix 
+
+run_grna_pipeline(
+  input_dir = "CBE_FASTQ_files/", 
+  reference_file = "Fasta_files/DC_cbe_sgRNAs.fa", 
+  index_name = "cbe_library", 
+  nBases = 2,
+  Lpattern = "CTTGTGGAAAGGACGAAACACCG",
+  Rpattern = "TTGAGA", 
+  truncateEndBases = NULL,
+  truncateStartBases = NULL
+  
+)
+
+
+# This function successfully generated the combined count table.You can find the table
+# in a read_counts folder. 
+# Column names were renamed for clarity, and a gene_names column was appended 
+# to enable downstream statistical analysis:
+
+# Loading excel file that is saved in a read_counts folder:
+
+cbe_readcounts <- read_excel("CBE_FASTQ_files/read_counts/combined_read_counts.xlsx")
+
+cbe_genes <- c("CTNNB1", "APC", "Axin1", "Gsk3b", "control")
+cbe_readcounts_df <- cbe_readcounts |> mutate(gene_names = rep(cbe_genes, c(868,2449,1350,446,282))) |> relocate(gene_names, .after = ids)
+
+colnames(cbe_readcounts_df) <- c("ids", "gene_names", "CBE_WT_bot_rep01", "CBE_WT_bot_rep02", "CBE_WT_top_rep01", "CBE_WT_top_rep02", "CBE_WT_unsort_rep01","CBE_WT_unsort_rep02")
+
+# Save this cbe_readcounts_df as an excel sheet:
+
+write.xlsx(cbe_readcounts_df, "CBE_FASTQ_files/read_counts/cbe_readcounts_df.xlsx")
+```
+
+
+
+```{r echo = TRUE, comment =TRUE, message =TRUE, warning = FALSE }
+
+#You can create the experimental design as an R list so that all metadata for samples, conditions, # replicates, and file names stay organized for downstream analysis.
+
+design <- list(
+  conditions = list(
+    bot = c("CBE_WT_bot_rep01", "CBE_WT_bot_rep02"),
+    top = c("CBE_WT_top_rep01", "CBE_WT_top_rep02"),
+    unsorted = c("CBE_WT_unsort_rep01", 
+                                 "CBE_WT_unsort_rep02")
+    
+  ), 
+  reference_condition = "unsorted", 
+  control_gene = "control"
+)
+
+cbe_results_df <- base_editing_pipeline(
+  raw_count_file = "CBE_FASTQ_files/read_counts/cbe_readcounts_df.xlsx", 
+  experiment_design = design 
+)
+
+write.xlsx(cbe_results_df, "CBE_FASTQ_files/read_counts/cbe_readcounts_pvalues_FDR_appended.xlsx")
+
+```
+
+
+
+
+```{r echo = TRUE, comment =TRUE, message = TRUE, warning = FALSE}
+# Finally, you can use our base-editing design tool to predict editing outcomes
+# (https://doi.org/10.5281/zenodo.19957892).
+# In this study, guide RNAs were designed using a base-editing window spanning
+# positions 3–10. The resulting predicted mutations and corresponding mutation
+# categories can then be appended to the output generated from the
+# base_editing_pipeline.
+
+cbe_3_10_predictions <- read_excel("CBE_FASTQ_files/cbe_3_10_predictions.xlsx")
+
+cbe_results_df <- left_join(cbe_results_df, cbe_3_10_predictions, by = "ids")
+
+# relocated gene_names next to the sequences:
+
+cbe_results_df <- cbe_results_df |> relocate(gene_names, .before = gRNA)
+
+# # This data frame contains all processed metrics required for downstream visualization and plotting analyses: 
+
+write.xlsx(cbe_results_df, "CBE_FASTQ_files/read_counts/cbe_results_df_predictions_appended.xlsx")
+```
