@@ -1,4 +1,6 @@
 ### Base-editing screen analysis pipeline
+
+[![DOI](https://zenodo.org/badge/1237008934.svg)](https://doi.org/10.5281/zenodo.20348522)
 A modular R-based pipeline for processing CRISPR gRNA base-editing screening data from raw FASTQ files through alignment, 
 read counting, and statistical analysis (z-scores, p-values, and FDR), using control-guide log fold-changes as the null distribution.
 
